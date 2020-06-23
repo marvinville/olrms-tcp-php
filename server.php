@@ -5,23 +5,35 @@ socket_getsockname($sock, $addr, $port);
 echo $logs = "Server Listening on $addr:$port\n";
 
 require "bin/helper.php";
+include "database/connect.php";
+require "database/model.php";
+
+$db = new DB_Model();
 
 while ($c = socket_accept($sock)) {
-   
+
    socket_getpeername($c, $raddr, $rport);
    $incoming = socket_read($c, 2048);
-   // $incoming = '$$A173,864507038087309,AAA,35,14.290400,120.903526,191122013724,A,10,14,35,71,0.9,129,8727455,42108959,515|2|0008|00000008,0200,0001|0000|0000|019A|0569,00000001,,3,,,424,328*3A';
+
+   $data = array(
+      'remote_address' => $raddr,
+      'remote_port' => $rport,
+      'gprs_data' => $incoming
+   );
+
+   $db->insert('gprs', $data, $conn);
+
    $gps = explode(',', $incoming);
    $keyword = $gps[0];
-   
+   $imei = isset($gps[1]) ? $gps[1] : '';
+
    $logs .= "Received Connection from $raddr:$rport";
    $logs .= "\n";
    $logs .= $incoming;
    $logs .= "\n";
 
-   if ($keyword === '$$A173') {
+   if ($imei) {
 
-      $imei = $gps[1];
       $lat = $gps[4];
       $lng = $gps[5];
       $network = $gps[16];
@@ -34,11 +46,11 @@ while ($c = socket_accept($sock)) {
 
       echo $curlResult = curlData($payload);
 
-      $logs.= $curlResult;
+      $logs .= $curlResult;
    }
 
    logData($logs);
-   
+
    $msg = 'Reply';
 
    socket_write($c, $msg);
